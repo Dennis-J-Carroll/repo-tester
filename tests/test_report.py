@@ -1,5 +1,4 @@
 import json
-import pytest
 from repo_tester.report import Finding, Report
 
 

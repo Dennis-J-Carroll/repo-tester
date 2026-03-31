@@ -34,11 +34,11 @@ class Report:
     def summary(self) -> dict[str, int]:
         counts: dict[str, int] = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0, "INFO": 0}
         for f in self.findings:
-            counts[f.severity] += 1
+            counts[f.severity] = counts.get(f.severity, 0) + 1
         return counts
 
     def sorted_findings(self) -> list[Finding]:
-        return sorted(self.findings, key=lambda f: SEVERITY_ORDER[f.severity])
+        return sorted(self.findings, key=lambda f: SEVERITY_ORDER.get(f.severity, 99))
 
     def to_json(self) -> str:
         return json.dumps(
@@ -81,6 +81,6 @@ class Report:
         s = self.summary
         lines.append(
             f"{s['CRITICAL']} CRITICAL  {s['HIGH']} HIGH  "
-            f"{s['MEDIUM']} MEDIUM  {s['LOW']} LOW"
+            f"{s['MEDIUM']} MEDIUM  {s['LOW']} LOW  {s.get('INFO', 0)} INFO"
         )
         return "\n".join(lines)
