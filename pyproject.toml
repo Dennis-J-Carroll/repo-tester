@@ -1,0 +1,23 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "repo-tester"
+version = "0.1.0"
+description = "GitHub repository safety scanner"
+requires-python = ">=3.10"
+dependencies = [
+    "click>=8.0",
+    "requests>=2.31",
+    "python-Levenshtein>=0.23",
+]
+
+[project.scripts]
+repo-tester = "repo_tester.cli:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/repo_tester"]
