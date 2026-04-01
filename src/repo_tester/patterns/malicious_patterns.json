@@ -1,0 +1,88 @@
+{
+  "regex": [
+    {
+      "id": "BASE64_EXEC",
+      "severity": "CRITICAL",
+      "pattern": "exec\\s*\\(.*base64",
+      "title": "Obfuscated exec via base64",
+      "detail": "Executes base64-decoded content at runtime — common obfuscation technique"
+    },
+    {
+      "id": "ZLIB_EVAL",
+      "severity": "CRITICAL",
+      "pattern": "eval\\s*\\(.*zlib",
+      "title": "Obfuscated eval via zlib",
+      "detail": "Compressed + encoded payload executed at runtime"
+    },
+    {
+      "id": "HEX_EXEC",
+      "severity": "CRITICAL",
+      "pattern": "exec\\s*\\(bytes\\.fromhex|exec\\s*\\(b'\\\\x",
+      "title": "Hex-encoded execution",
+      "detail": "Executes hex-encoded string — used to evade static analysis"
+    },
+    {
+      "id": "SSH_KEY_READ",
+      "severity": "HIGH",
+      "pattern": "open\\s*\\(['\"].*\\.ssh",
+      "title": "Reads SSH private keys",
+      "detail": "Opens files in ~/.ssh — potential credential theft"
+    },
+    {
+      "id": "AWS_CREDS_READ",
+      "severity": "HIGH",
+      "pattern": "open\\s*\\(['\"].*\\.aws/credentials",
+      "title": "Reads AWS credentials file",
+      "detail": "Opens ~/.aws/credentials — potential credential exfiltration"
+    },
+    {
+      "id": "ENV_EXFIL",
+      "severity": "HIGH",
+      "pattern": "requests\\.(post|put).*os\\.environ",
+      "title": "Possible env-var exfiltration",
+      "detail": "POSTs data including environment variables to a remote endpoint"
+    },
+    {
+      "id": "CRONTAB_WRITE",
+      "severity": "HIGH",
+      "pattern": "crontab\\s+-[li]|/etc/cron\\.(d|daily|hourly|weekly)",
+      "title": "Crontab modification",
+      "detail": "Writes to cron — persistence mechanism"
+    },
+    {
+      "id": "BASHRC_APPEND",
+      "severity": "HIGH",
+      "pattern": ">>\\s*[\"']?.*\\.(bashrc|profile|zshrc|bash_profile)",
+      "title": "Modifies shell profile",
+      "detail": "Appends to shell startup file — persistence mechanism"
+    },
+    {
+      "id": "SYSTEMD_DROP",
+      "severity": "HIGH",
+      "pattern": "/etc/systemd/system/.*\\.service",
+      "title": "Systemd unit file creation",
+      "detail": "Creates a systemd service — persistence mechanism"
+    },
+    {
+      "id": "DYNAMIC_IMPORT",
+      "severity": "MEDIUM",
+      "pattern": "__import__\\s*\\(",
+      "title": "Dynamic import via __import__",
+      "detail": "Dynamic imports can obscure what modules are loaded"
+    },
+    {
+      "id": "HARDCODED_IP",
+      "severity": "MEDIUM",
+      "pattern": "https?://\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}",
+      "title": "Hardcoded IP address in URL",
+      "detail": "Network requests to raw IPs bypass DNS and are harder to audit"
+    },
+    {
+      "id": "KEYLOG_INPUT",
+      "severity": "HIGH",
+      "pattern": "pynput|keyboard\\.on_press|GetAsyncKeyState",
+      "title": "Possible keylogger",
+      "detail": "Uses keyboard input monitoring APIs associated with keyloggers"
+    }
+  ]
+}
