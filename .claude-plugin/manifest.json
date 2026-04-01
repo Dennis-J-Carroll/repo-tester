@@ -1,0 +1,21 @@
+{
+  "name": "repo-tester",
+  "version": "0.1.0",
+  "description": "Scan any GitHub repo for malicious patterns, supply chain risks, and repo health issues",
+  "author": "Dennis J. Carroll",
+  "triggers": [
+    {
+      "pattern": "scan (.+)",
+      "description": "Scan a GitHub repository URL for security issues"
+    }
+  ],
+  "entry": {
+    "type": "cli",
+    "command": "repo-tester",
+    "args": ["{0}", "--format", "json"]
+  },
+  "requirements": {
+    "python": ">=3.11",
+    "install": "pip install repo-tester"
+  }
+}
