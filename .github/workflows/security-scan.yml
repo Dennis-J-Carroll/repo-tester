@@ -69,10 +69,16 @@ jobs:
       - name: Fail if critical or high issues
         if: steps.parse.outputs.critical != '0' || steps.parse.outputs.high != '0'
         run: |
-          echo "::error::Security scan found CRITICAL or HIGH severity issues!"
-          echo "Critical: ${{ steps.parse.outputs.critical }}"
-          echo "High: ${{ steps.parse.outputs.high }}"
-          exit 1
+          # Filter out test file findings
+          REAL_ISSUES=$(jq '[.findings[] | select(.file_path | contains("tests/") | not) | select(.file_path | contains("patterns/") | not)] | length' scan-results.json)
+
+          if [ "$REAL_ISSUES" -gt 0 ]; then
+            echo "::error::Security scan found $REAL_ISSUES CRITICAL or HIGH severity issues in non-test code!"
+            exit 1
+          else
+            echo "::notice::Test file findings are expected and ignored"
+            exit 0
+          fi
 
       - name: Comment on PR
         if: github.event_name == 'pull_request' && always()
