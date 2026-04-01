@@ -1,0 +1,22 @@
+{
+  "pypi": [
+    "requests", "numpy", "pandas", "flask", "django", "fastapi", "sqlalchemy",
+    "pytest", "click", "pydantic", "boto3", "aiohttp", "httpx", "pillow",
+    "scipy", "matplotlib", "tensorflow", "torch", "scikit-learn", "celery",
+    "redis", "psycopg2", "pymongo", "cryptography", "paramiko", "black",
+    "mypy", "ruff", "uvicorn", "gunicorn", "werkzeug", "jinja2", "pyyaml",
+    "toml", "attrs", "rich", "typer", "loguru", "arrow", "urllib3", "certifi",
+    "charset-normalizer", "idna", "setuptools", "wheel", "pip", "tqdm",
+    "colorama", "six", "packaging", "filelock", "platformdirs", "virtualenv"
+  ],
+  "npm": [
+    "react", "vue", "lodash", "express", "axios", "moment", "jquery",
+    "webpack", "typescript", "eslint", "prettier", "jest", "mocha", "chai",
+    "dotenv", "nodemon", "cors", "helmet", "morgan", "multer", "socket.io",
+    "graphql", "next", "nuxt", "gatsby", "vite", "rollup", "tailwindcss",
+    "postcss", "autoprefixer", "babel", "core-js", "regenerator-runtime",
+    "classnames", "prop-types", "react-dom", "react-router-dom", "redux",
+    "zustand", "zod", "yup", "formik", "date-fns", "uuid", "nanoid",
+    "chalk", "commander", "inquirer", "glob", "rimraf", "cross-env"
+  ]
+}
