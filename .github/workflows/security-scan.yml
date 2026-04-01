@@ -1,0 +1,109 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  schedule:
+    # Run weekly on Monday at 9am UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install repo-tester
+        run: |
+          python -m pip install --upgrade pip
+          pip install repo-tester
+
+      - name: Run security scan
+        id: scan
+        run: |
+          # Scan this repository
+          repo-tester https://github.com/${{ github.repository }} --format json > scan-results.json
+          cat scan-results.json
+        continue-on-error: true
+
+      - name: Parse results
+        id: parse
+        run: |
+          # Extract summary
+          CRITICAL=$(jq -r '.summary.CRITICAL' scan-results.json)
+          HIGH=$(jq -r '.summary.HIGH' scan-results.json)
+          MEDIUM=$(jq -r '.summary.MEDIUM' scan-results.json)
+          LOW=$(jq -r '.summary.LOW' scan-results.json)
+
+          echo "critical=$CRITICAL" >> $GITHUB_OUTPUT
+          echo "high=$HIGH" >> $GITHUB_OUTPUT
+          echo "medium=$MEDIUM" >> $GITHUB_OUTPUT
+          echo "low=$LOW" >> $GITHUB_OUTPUT
+
+          # Create summary
+          echo "## Security Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Severity | Count |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| 🔴 CRITICAL | $CRITICAL |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🟠 HIGH | $HIGH |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🟡 MEDIUM | $MEDIUM |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🔵 LOW | $LOW |" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload scan results
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-scan-results
+          path: scan-results.json
+
+      - name: Fail if critical or high issues
+        if: steps.parse.outputs.critical != '0' || steps.parse.outputs.high != '0'
+        run: |
+          echo "::error::Security scan found CRITICAL or HIGH severity issues!"
+          echo "Critical: ${{ steps.parse.outputs.critical }}"
+          echo "High: ${{ steps.parse.outputs.high }}"
+          exit 1
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const results = JSON.parse(fs.readFileSync('scan-results.json', 'utf8'));
+
+            const summary = results.summary;
+            const total = summary.CRITICAL + summary.HIGH + summary.MEDIUM + summary.LOW + summary.INFO;
+
+            let body = '## 🔒 Security Scan Results\n\n';
+            body += `**Total Findings:** ${total}\n\n`;
+            body += '| Severity | Count |\n';
+            body += '|----------|-------|\n';
+            body += `| 🔴 CRITICAL | ${summary.CRITICAL} |\n`;
+            body += `| 🟠 HIGH | ${summary.HIGH} |\n`;
+            body += `| 🟡 MEDIUM | ${summary.MEDIUM} |\n`;
+            body += `| 🔵 LOW | ${summary.LOW} |\n`;
+            body += `| ℹ️  INFO | ${summary.INFO} |\n\n`;
+
+            if (summary.CRITICAL > 0 || summary.HIGH > 0) {
+              body += '⚠️ **Action required:** Critical or high severity issues detected!\n';
+            } else {
+              body += '✅ No critical or high severity issues found.\n';
+            }
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });

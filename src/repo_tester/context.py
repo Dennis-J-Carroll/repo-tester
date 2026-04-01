@@ -47,7 +47,7 @@ def clone_repo(url: str):
             ["git", "clone", "--depth", "1", "--quiet", url, tmpdir],
             check=True,
             capture_output=True,
-            timeout=60,
+            timeout=180,
         )
         ctx = RepoContext(url=url, owner=owner, repo=repo, local_path=Path(tmpdir))
         ctx._classify_files()
