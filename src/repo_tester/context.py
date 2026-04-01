@@ -14,7 +14,7 @@ INSTALL_SCRIPT_NAMES = {
 
 
 def _parse_github_url(url: str) -> tuple[str, str]:
-    match = re.search(r"github\.com/([^/]+)/([^/\s]+?)(?:\.git)?$", url)
+    match = re.search(r"https?://github\.com/([^/]+)/([^/\s]+?)(?:\.git)?$", url)
     if not match:
         raise ValueError(f"Not a valid GitHub URL: {url}")
     return match.group(1), match.group(2)
