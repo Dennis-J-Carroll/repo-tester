@@ -139,9 +139,17 @@ class SupplyChainScanner(BaseScanner):
             if dep["ecosystem"] not in ("PyPI", "npm"):
                 continue
             try:
+                # Extract exact version if pinned with ==
+                query_data = {"package": {"name": dep["name"], "ecosystem": dep["ecosystem"]}}
+                version_spec = dep.get("version_spec", "")
+                version = None
+                if version_spec.startswith("=="):
+                    version = version_spec[2:].strip()
+                    query_data["version"] = version
+
                 resp = http.post(
                     _OSV_API,
-                    json={"package": {"name": dep["name"], "ecosystem": dep["ecosystem"]}},
+                    json=query_data,
                     timeout=10,
                 )
                 if resp.ok:
@@ -149,9 +157,10 @@ class SupplyChainScanner(BaseScanner):
                     if vulns:
                         ids = ", ".join(v["id"] for v in vulns[:3])
                         suffix = f" (+{len(vulns) - 3} more)" if len(vulns) > 3 else ""
+                        version_note = f" (v{version})" if version else ""
                         findings.append(Finding(
                             severity="HIGH",
-                            title=f"Known CVEs in {dep['name']}",
+                            title=f"Known CVEs in {dep['name']}{version_note}",
                             detail=f"{len(vulns)} vulnerabilities: {ids}{suffix}",
                             file_path=str(path),
                             scanner=self.name,
