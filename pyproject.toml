@@ -7,6 +7,23 @@ name = "repo-tester"
 version = "0.1.0"
 description = "GitHub repository safety scanner"
 requires-python = ">=3.11"
+authors = [{name = "Dennis J. Carroll", email = "denniscarrollj@gmail.com"}]
+license = {text = "MIT"}
+keywords = ["security", "github", "scanner", "malicious-code", "repository", "safety", "supply-chain"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "Topic :: Security",
+    "Topic :: Software Development :: Quality Assurance",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: OS Independent",
+    "Environment :: Console",
+]
 dependencies = [
     "click==8.1.7",
     "requests==2.33.1",
@@ -15,6 +32,11 @@ dependencies = [
 
 [project.scripts]
 repo-tester = "repo_tester.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/Dennis-J-Carroll/repo-tester"
+Repository = "https://github.com/Dennis-J-Carroll/repo-tester"
+Issues = "https://github.com/Dennis-J-Carroll/repo-tester/issues"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
