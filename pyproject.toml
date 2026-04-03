@@ -8,6 +8,7 @@ version = "0.1.0"
 description = "GitHub repository safety scanner"
 requires-python = ">=3.11"
 authors = [{name = "Dennis J. Carroll", email = "denniscarrollj@gmail.com"}]
+readme = "README.md"
 license = {text = "MIT"}
 keywords = ["security", "github", "scanner", "malicious-code", "repository", "safety", "supply-chain"]
 classifiers = [

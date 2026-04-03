@@ -1,32 +1,25 @@
 <p align="center">
-  <img src="logo.PNG" alt="repo-tester logo" width="400" />
+  <img src="logo.PNG" alt="repo-tester logo" width="600">
 </p>
 
-<p align="center">
-  <strong>GitHub Repository Safety Scanner</strong><br/>
-  Automated security scanning for malicious code, supply chain risks, and repository health
-</p>
+# repo-tester
 
-<p align="center">
-  <a href="https://pypi.org/project/repo-tester/">
-    <img src="https://img.shields.io/pypi/v/repo-tester.svg" alt="PyPI version" />
-  </a>
-  <a href="https://www.python.org/downloads/release/python-311/">
-    <img src="https://img.shields.io/badge/python-3.11+-blue.svg" alt="Python 3.11+" />
-  </a>
-  <a href="https://github.com/Dennis-J-Carroll/repo-tester/blob/master/LICENSE">
-    <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License: MIT" />
-  </a>
-  <a href="https://github.com/Dennis-J-Carroll/repo-tester/actions">
-    <img src="https://img.shields.io/github/actions/workflow/status/Dennis-J-Carroll/repo-tester/tests.yml?branch=master" alt="Build Status" />
-  </a>
-</p>
+[![PyPI version](https://badge.fury.io/py/repo-tester.svg)](https://pypi.org/project/repo-tester/)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Build Status](https://github.com/Dennis-J-Carroll/repo-tester/workflows/Security%20Scan/badge.svg)](https://github.com/Dennis-J-Carroll/repo-tester/actions)
 
----
+**GitHub repository safety scanner** - Detect malicious patterns, supply chain risks, and repository health issues
+
+## Overview
+
+`repo-tester` is a comprehensive security scanner for GitHub repositories that identifies malicious code patterns, supply chain vulnerabilities, and repository health issues. Built for security engineers, DevOps teams, and developers, it provides fast parallel scanning with actionable findings.
+
+Perfect for vetting third-party repositories, auditing dependencies, and integrating security checks into CI/CD pipelines.
 
 ## Features
 
-- **🔍 Malicious Pattern Detection** - Identifies common malicious code patterns including base64 execution, crypto miners, and obfuscated payloads
+- **🔍 Malicious Pattern Detection** - Identifies obfuscated code, suspicious imports, base64 encoding, credential theft patterns, and hidden backdoors
 - **🔗 Supply Chain Risk Analysis** - Detects vulnerable dependencies, security advisories, and compromised packages using OSV database
 - **📊 Repository Health Metrics** - Evaluates code quality, maintenance status, commit activity, and security best practices
 - **⚡ Parallel Scanning** - All three scanners run concurrently for performance
@@ -186,10 +179,10 @@ The tool runs three independent scanners in parallel, each focusing on different
 #### 1. Malicious Pattern Scanner (Priority 1)
 Searches for common code patterns used in malware and attacks:
 - Base64 execution sequences (`base64.b64decode()` + `exec()`)
-- Crypto mining code (references to mining pools and wallets)
 - Command injection patterns
 - Shell obfuscation techniques
 - Pickle deserialization vulnerabilities
+- Credential theft patterns
 
 Patterns are defined in `patterns/malicious_patterns.json` for easy updates without code changes.
 
@@ -295,7 +288,7 @@ repo-tester is a **detection and analysis tool**, not a prevention tool. It help
 
 ### Responsible Disclosure
 
-If you discover a vulnerability in repo-tester itself, please email security@example.com instead of using the issue tracker.
+If you discover a vulnerability in repo-tester itself, please email denniscarrollj@gmail.com instead of using the issue tracker.
 
 ### What This Tool Is NOT
 
