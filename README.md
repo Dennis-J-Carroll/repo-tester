@@ -19,11 +19,11 @@ Perfect for vetting third-party repositories, auditing dependencies, and integra
 
 ## Features
 
-- **🔍 Malicious Pattern Detection** - Identifies obfuscated code, suspicious imports, base64 encoding, credential theft patterns, and hidden backdoors
-- **🔗 Supply Chain Risk Analysis** - Detects vulnerable dependencies, security advisories, and compromised packages using OSV database
-- **📊 Repository Health Metrics** - Evaluates code quality, maintenance status, commit activity, and security best practices
-- **⚡ Parallel Scanning** - All three scanners run concurrently for performance
-- **📄 JSON & Terminal Output** - Flexible reporting formats for integration and human review
+- **Malicious Pattern Detection** - Identifies obfuscated code, suspicious imports, base64 encoding, credential theft patterns, and hidden backdoors
+- **Supply Chain Risk Analysis** - Detects vulnerable dependencies, security advisories, and compromised packages using OSV database
+- **Repository Health Metrics** - Evaluates code quality, maintenance status, commit activity, and security best practices
+- **Parallel Scanning** - All three scanners run concurrently for performance
+- **JSON & Terminal Output** - Flexible reporting formats for integration and human review
 - **🔐 Security-First** - Designed with a defense-in-depth approach across multiple threat vectors
 
 ## Quick Start
