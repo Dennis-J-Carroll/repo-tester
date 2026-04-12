@@ -31,6 +31,14 @@ dependencies = [
     "python-Levenshtein==0.27.3",
 ]
 
+# --- Dev dependencies (used by CI and local development) ---
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "pytest-mock>=3.14",
+]
+
 [project.scripts]
 repo-tester = "repo_tester.cli:main"
 
