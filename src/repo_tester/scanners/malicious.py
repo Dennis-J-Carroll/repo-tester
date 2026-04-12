@@ -3,13 +3,14 @@ import ast
 import json
 import re
 from pathlib import Path
+from typing import cast
 from repo_tester.scanners.base import BaseScanner
 from repo_tester.context import RepoContext
-from repo_tester.report import Finding
+from repo_tester.report import Finding, Severity
 
 _PATTERNS_FILE = Path(__file__).parent.parent / "patterns" / "malicious_patterns.json"
 
-_INSTALL_EXTRA = [
+_INSTALL_EXTRA: list[tuple[str, Severity, str, str]] = [
     (r"curl\s+\S+.*\|\s*(bash|sh|python\d?)", "CRITICAL",
      "curl pipe shell in install script",
      "Downloads and executes code without verification"),
@@ -111,7 +112,7 @@ class MaliciousPatternScanner(BaseScanner):
             for i, line in enumerate(text.splitlines(), 1):
                 if re.search(pattern, line, re.IGNORECASE):
                     findings.append(Finding(
-                        severity=severity,
+                        severity=cast(Severity, severity),
                         title=title,
                         detail=detail,
                         file_path=str(path),
