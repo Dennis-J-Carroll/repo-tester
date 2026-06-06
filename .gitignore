@@ -6,3 +6,7 @@ __pycache__/
 dist/
 .venv/
 .claude/settings.local.json
+
+# Local and agent directories
+/repo-tester-v2/
+/.antigravitycli/

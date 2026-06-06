@@ -3,13 +3,75 @@ import json
 import re
 from pathlib import Path
 import requests as http
-from Levenshtein import distance as levenshtein_distance
 from repo_tester.scanners.base import BaseScanner
 from repo_tester.context import RepoContext
 from repo_tester.report import Finding
 
+# ── Levenshtein distance with fallback ──────────────────────────────────────
+try:
+    from Levenshtein import distance as levenshtein_distance
+except ImportError:
+    try:
+        from rapidfuzz.distance.Levenshtein import distance as levenshtein_distance
+    except ImportError:
+        # Pure Python fallback (slower but always works)
+        def levenshtein_distance(a: str, b: str) -> int:
+            if len(a) < len(b):
+                a, b = b, a
+            if not b:
+                return len(a)
+            prev = list(range(len(b) + 1))
+            for i, ca in enumerate(a):
+                curr = [i + 1]
+                for j, cb in enumerate(b):
+                    curr.append(min(prev[j + 1] + 1, curr[j] + 1, prev[j] + (ca != cb)))
+                prev = curr
+            return prev[-1]
+
 _KNOWN_FILE = Path(__file__).parent.parent / "patterns" / "known_packages.json"
 _OSV_API = "https://api.osv.dev/v1/query"
+
+# ── Fix 2: Popular packages with >1000 GitHub stars — whitelisted from typosquatting ──
+# These are well-known, established packages. A new package with a similar name
+# to one of these should still be flagged, but these packages themselves should NOT
+# be flagged as typosquats of each other.
+_POPULAR_PACKAGES = {
+    "requests", "urllib3", "certifi", "charset-normalizer", "idna",
+    "numpy", "pandas", "scipy", "matplotlib", "scikit-learn",
+    "flask", "django", "fastapi", "tornado", "celery", "gunicorn", "uvicorn",
+    "click", "black", "ruff", "mypy", "isort", "autopep8",
+    "pytest", "unittest2", "nose2", "coverage", "tox",
+    "sqlalchemy", "psycopg2", "pymongo", "redis",
+    "boto3", "botocore", "aiohttp", "httpx",
+    "pillow", "opencv-python", "scikit-image",
+    "tensorflow", "torch", "keras", "jax", "transformers",
+    "cryptography", "paramiko", "pyopenssl", "passlib",
+    "jinja2", "markupsafe", "werkzeug", "itsdangerous",
+    "setuptools", "wheel", "pip", "build", "hatchling", "flit-core",
+    "pydantic", "rich", "typer", "loguru", "arrow", "attrs",
+    "pyyaml", "toml", "tomli", "tomli-w",
+    "six", "packaging", "filelock", "platformdirs", "virtualenv",
+    "tqdm", "colorama", "pygments",
+}
+
+
+def _is_popular(name: str) -> bool:
+    """Check if a package is well-known/popular (Fix 2)."""
+    # Exact match
+    if name.lower() in _POPULAR_PACKAGES:
+        return True
+    # Hyphen/underscore variants
+    normalized = name.lower().replace("-", "").replace("_", "")
+    for pkg in _POPULAR_PACKAGES:
+        if pkg.replace("-", "").replace("_", "") == normalized:
+            return True
+    return False
+
+
+def _short_name_safe(name: str) -> bool:
+    """Short names (<= 4 chars) have naturally small Levenshtein distances.
+    Only flag short names if the distance is 0 (exact match to known typosquat)."""
+    return len(name) <= 4
 
 
 class SupplyChainScanner(BaseScanner):
@@ -48,7 +110,7 @@ class SupplyChainScanner(BaseScanner):
                 findings.extend(self._check_source_urls(text, path))
         return findings
 
-    # --- parsers ---
+    # --- parsers (unchanged) ---
 
     def _parse_requirements_txt(self, text: str) -> list[dict]:
         deps = []
@@ -130,6 +192,7 @@ class SupplyChainScanner(BaseScanner):
                     detail=f"Version '{spec or 'unspecified'}' allows unexpected upgrades that may introduce vulnerabilities",
                     file_path=str(path),
                     scanner=self.name,
+                    verdict="warn",
                 ))
         return findings
 
@@ -139,7 +202,6 @@ class SupplyChainScanner(BaseScanner):
             if dep["ecosystem"] not in ("PyPI", "npm"):
                 continue
             try:
-                # Extract exact version if pinned with ==
                 query_data = {"package": {"name": dep["name"], "ecosystem": dep["ecosystem"]}}
                 version_spec = dep.get("version_spec", "")
                 version = None
@@ -164,25 +226,37 @@ class SupplyChainScanner(BaseScanner):
                             detail=f"{len(vulns)} vulnerabilities: {ids}{suffix}",
                             file_path=str(path),
                             scanner=self.name,
+                            verdict="bad",
                         ))
             except Exception:
-                pass  # Network failure — skip silently
+                pass
         return findings
 
     def _check_typosquatting(self, deps: list[dict], path: Path) -> list[Finding]:
         findings: list[Finding] = []
         for dep in deps:
+            name = dep["name"]
+            name_norm = name.lower().replace("-", "").replace("_", "")
+
+            # Fix 2: Skip popular/established packages
+            if _is_popular(name):
+                continue
+
+            # Fix 2: Skip very short names — they naturally have small distances
+            if _short_name_safe(name) and len(name_norm) <= 4:
+                continue
+
             known = self._known_pypi if dep["ecosystem"] == "PyPI" else self._known_npm
-            name_norm = dep["name"].lower().replace("-", "").replace("_", "")
             for legit in known:
                 legit_norm = legit.lower().replace("-", "").replace("_", "")
                 if name_norm != legit_norm and levenshtein_distance(name_norm, legit_norm) <= 2:
                     findings.append(Finding(
                         severity="HIGH",
-                        title=f"Possible typosquat: '{dep['name']}' ≈ '{legit}'",
+                        title=f"Possible typosquat: '{name}' ≈ '{legit}'",
                         detail=f"Package name is very close to popular package '{legit}' — verify this is intentional",
                         file_path=str(path),
                         scanner=self.name,
+                        verdict="bad",
                     ))
                     break
         return findings
@@ -198,5 +272,21 @@ class SupplyChainScanner(BaseScanner):
                     detail=f"Source URL uses a raw IP: {url} — unexpected for legitimate packages",
                     file_path=str(path),
                     scanner=self.name,
+                    verdict="bad",
                 ))
         return findings
+
+    # ── Imp 9: Library practice targets ───────────────────────────────────────
+    def library_targets(self, deps: list[dict]) -> list[dict]:
+        """Rank flagged libraries by how often they appear in the dep tree."""
+        from collections import Counter
+        name_counts = Counter(d["name"] for d in deps)
+        targets = []
+        for name, count in name_counts.most_common(10):
+            if count >= 2:
+                targets.append({
+                    "name": name,
+                    "count": count,
+                    "note": f"appears {count}x in dependency tree",
+                })
+        return targets

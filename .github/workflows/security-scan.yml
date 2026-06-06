@@ -4,12 +4,11 @@ on:
   schedule:
     # Run weekly on Monday at 9am UTC
     - cron: '0 9 * * 1'
-  workflow_dispatch:    # Allow manual trigger
+  workflow_dispatch: # Allow manual trigger
 
 jobs:
   security-scan:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -23,7 +22,11 @@ jobs:
       - name: Install repo-tester from source
         run: |
           python -m pip install --upgrade pip
-          pip install -e .
+          pip install -e ".[dev]"
+
+      - name: Verify CLI entry point
+        run: |
+          repo-tester --help
 
       - name: Run security scan
         id: scan
@@ -48,47 +51,26 @@ jobs:
           HIGH=$(jq -r '.summary.HIGH // 0' scan-results.json)
           MEDIUM=$(jq -r '.summary.MEDIUM // 0' scan-results.json)
           LOW=$(jq -r '.summary.LOW // 0' scan-results.json)
-
           echo "critical=$CRITICAL" >> $GITHUB_OUTPUT
           echo "high=$HIGH"         >> $GITHUB_OUTPUT
           echo "medium=$MEDIUM"     >> $GITHUB_OUTPUT
           echo "low=$LOW"           >> $GITHUB_OUTPUT
-
           echo "## Security Scan Results"          >> $GITHUB_STEP_SUMMARY
           echo ""                                   >> $GITHUB_STEP_SUMMARY
           echo "| Severity | Count |"               >> $GITHUB_STEP_SUMMARY
           echo "|----------|-------|"               >> $GITHUB_STEP_SUMMARY
           echo "| 🔴 CRITICAL | $CRITICAL |"        >> $GITHUB_STEP_SUMMARY
-          echo "| 🟠 HIGH | $HIGH |"                >> $GITHUB_STEP_SUMMARY
-          echo "| 🟡 MEDIUM | $MEDIUM |"            >> $GITHUB_STEP_SUMMARY
-          echo "| 🔵 LOW | $LOW |"                  >> $GITHUB_STEP_SUMMARY
+          echo "| 🟠 HIGH     | $HIGH |"            >> $GITHUB_STEP_SUMMARY
+          echo "| 🟡 MEDIUM   | $MEDIUM |"          >> $GITHUB_STEP_SUMMARY
+          echo "| 🔵 LOW      | $LOW |"             >> $GITHUB_STEP_SUMMARY
 
-      - name: Upload scan results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: security-scan-results
-          path: scan-results.json
-
-      - name: Fail if critical or high issues in production code
+      - name: Fail on CRITICAL or HIGH findings
+        if: steps.parse.outputs.critical > 0 || steps.parse.outputs.high > 0
         run: |
-          REAL_ISSUES=$(jq '[.findings[]
-            | select(.severity == "CRITICAL" or .severity == "HIGH")
-            | select(.file_path | contains("tests/") | not)
-            | select(.file_path | contains("patterns/") | not)
-            | select(.title | contains("typosquat") | not)
-          ] | length' scan-results.json)
+          echo "::error::Found ${{ steps.parse.outputs.critical }} CRITICAL and ${{ steps.parse.outputs.high }} HIGH severity issues"
+          exit 1
 
-          if [ "$REAL_ISSUES" -gt 0 ]; then
-            echo "::error::Security scan found $REAL_ISSUES CRITICAL or HIGH severity issues in production code!"
-            jq '[.findings[]
-              | select(.severity == "CRITICAL" or .severity == "HIGH")
-              | select(.file_path | contains("tests/") | not)
-              | select(.file_path | contains("patterns/") | not)
-              | select(.title | contains("typosquat") | not)
-            ]' scan-results.json
-            exit 1
-          else
-            echo "::notice::No critical issues in production code."
-            exit 0
-          fi
+      - name: Report findings
+        if: steps.parse.outputs.critical == 0 && steps.parse.outputs.high == 0
+        run: |
+          echo "No CRITICAL or HIGH findings. Scan passed."

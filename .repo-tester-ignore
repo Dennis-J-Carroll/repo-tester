@@ -1,0 +1,19 @@
+{
+  "description": "Example ignore rules for repo-tester. Place this in the root of any scanned repo to suppress false positives.",
+  "rules": [
+    {
+      "pattern": "test_*.py",
+      "scanners": ["malicious"],
+      "findings": ["Hardcoded IP"],
+      "severities": [],
+      "reason": "Test fixtures legitimately use 127.0.0.1 and other hardcoded IPs"
+    },
+    {
+      "pattern": "tests/**/*.py",
+      "scanners": ["malicious"],
+      "findings": ["Dynamic exec", "Dynamic compile"],
+      "severities": [],
+      "reason": "Tests may legitimately use exec/compile for parametrize"
+    }
+  ]
+}
