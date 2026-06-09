@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="logo.PNG" alt="repo-tester logo" width="600">
+  <img src="https://raw.githubusercontent.com/Dennis-J-Carroll/repo-tester/master/logo.PNG" alt="repo-tester logo" width="480">
 </p>
 
 # repo-tester
@@ -7,7 +7,7 @@
 [![PyPI version](https://badge.fury.io/py/repo-tester.svg)](https://pypi.org/project/repo-tester/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Build Status](https://github.com/Dennis-J-Carroll/repo-tester/workflows/Security%20Scan/badge.svg)](https://github.com/Dennis-J-Carroll/repo-tester/actions)
+[![CI](https://github.com/Dennis-J-Carroll/repo-tester/actions/workflows/ci.yml/badge.svg)](https://github.com/Dennis-J-Carroll/repo-tester/actions/workflows/ci.yml)
 
 **GitHub repository safety scanner** - Detect malicious patterns, supply chain risks, and repository health issues
 
