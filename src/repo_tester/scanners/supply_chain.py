@@ -9,24 +9,30 @@ from repo_tester.report import Finding
 
 # ── Levenshtein distance with fallback ──────────────────────────────────────
 try:
-    from Levenshtein import distance as levenshtein_distance
+    from Levenshtein import distance as _lev_distance
 except ImportError:
     try:
-        from rapidfuzz.distance.Levenshtein import distance as levenshtein_distance
+        from rapidfuzz.distance.Levenshtein import distance as _lev_distance
     except ImportError:
-        # Pure Python fallback (slower but always works)
-        def levenshtein_distance(a: str, b: str) -> int:
-            if len(a) < len(b):
-                a, b = b, a
-            if not b:
-                return len(a)
-            prev = list(range(len(b) + 1))
-            for i, ca in enumerate(a):
-                curr = [i + 1]
-                for j, cb in enumerate(b):
-                    curr.append(min(prev[j + 1] + 1, curr[j] + 1, prev[j] + (ca != cb)))
-                prev = curr
-            return prev[-1]
+        _lev_distance = None
+
+
+def levenshtein_distance(s1: str, s2: str) -> int:
+    """Edit distance between two strings — C extension when available, else a
+    pure-Python fallback (slower but always works)."""
+    if _lev_distance is not None:
+        return _lev_distance(s1, s2)
+    if len(s1) < len(s2):
+        s1, s2 = s2, s1
+    if not s2:
+        return len(s1)
+    prev = list(range(len(s2) + 1))
+    for i, ca in enumerate(s1):
+        curr = [i + 1]
+        for j, cb in enumerate(s2):
+            curr.append(min(prev[j + 1] + 1, curr[j] + 1, prev[j] + (ca != cb)))
+        prev = curr
+    return prev[-1]
 
 _KNOWN_FILE = Path(__file__).parent.parent / "patterns" / "known_packages.json"
 _OSV_API = "https://api.osv.dev/v1/query"

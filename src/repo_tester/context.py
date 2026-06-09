@@ -2,12 +2,16 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 from contextlib import contextmanager
+from typing import TYPE_CHECKING
 import fnmatch
 import json
 import re
 import subprocess
 import tempfile
 import shutil
+
+if TYPE_CHECKING:
+    from repo_tester.report import Finding
 
 INSTALL_SCRIPT_NAMES = {
     "install.sh", "install.bash", "bootstrap.sh", "build.sh",

@@ -117,7 +117,7 @@ def detect_repo_type(files: list[Path]) -> str:
             except OSError:
                 pass
 
-    best = max(scores, key=scores.get)
+    best = max(scores, key=lambda k: scores[k])
     return best if scores[best] >= 2 else ""
 
 
