@@ -1,8 +1,17 @@
 from __future__ import annotations
 import json
 import re
+import sys
 from pathlib import Path
 import requests as http
+
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    try:
+        import tomli as tomllib  # type: ignore[no-redef]
+    except ImportError:
+        tomllib = None  # type: ignore[assignment]
 from repo_tester.scanners.base import BaseScanner
 from repo_tester.context import RepoContext
 from repo_tester.report import Finding
@@ -140,17 +149,22 @@ class SupplyChainScanner(BaseScanner):
         return [{"name": k, "version_spec": v, "ecosystem": "npm"} for k, v in combined.items()]
 
     def _parse_pyproject_toml(self, text: str) -> list[dict]:
+        if tomllib is None:
+            return []
+        try:
+            data = tomllib.loads(text)
+        except Exception:
+            return []
         deps: list[dict] = []
-        in_deps = False
-        for line in text.splitlines():
-            if re.search(r"^\[?dependencies\]?", line):
-                in_deps = True
-            if in_deps:
-                m = re.search(r'"([A-Za-z0-9_\-\.]+)\s*([>=<!~^][^"]*)?"', line)
+        for spec in data.get("project", {}).get("dependencies", []):
+            m = re.match(r"^([A-Za-z0-9_\-\.]+)\s*([>=<!~^].+)?$", spec.strip())
+            if m:
+                deps.append({"name": m.group(1), "version_spec": (m.group(2) or "").strip(), "ecosystem": "PyPI"})
+        for group in data.get("project", {}).get("optional-dependencies", {}).values():
+            for spec in group:
+                m = re.match(r"^([A-Za-z0-9_\-\.]+)\s*([>=<!~^].+)?$", spec.strip())
                 if m:
                     deps.append({"name": m.group(1), "version_spec": (m.group(2) or "").strip(), "ecosystem": "PyPI"})
-                if line.strip().startswith("[") and "dependencies" not in line:
-                    in_deps = False
         return deps
 
     def _parse_go_mod(self, text: str) -> list[dict]:

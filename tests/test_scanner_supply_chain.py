@@ -75,3 +75,45 @@ def test_parses_package_json_deps(scanner, tmp_repo):
         mock_post.return_value.json.return_value = {"vulns": []}
         findings = scanner.scan(tmp_repo)
     assert any("lodash" in f.title for f in findings)
+
+
+def test_pyproject_zero_deps_no_findings(scanner, tmp_repo):
+    # Regression: zero-dep pyproject.toml (keywords/classifiers contain quoted
+    # strings) must not produce typosquat or unpinned-dep findings.
+    toml = """
+[project]
+name = "glassport"
+version = "0.1.0"
+description = "Zero dependencies."
+keywords = ["mcp", "security", "observability"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3.10",
+    "Topic :: Security",
+]
+""".strip()
+    make_file(tmp_repo, "pyproject.toml", toml)
+    with patch("repo_tester.scanners.supply_chain.http.post") as mock_post:
+        mock_post.return_value.ok = True
+        mock_post.return_value.json.return_value = {"vulns": []}
+        findings = scanner.scan(tmp_repo)
+    assert findings == []
+
+
+def test_pyproject_parses_real_deps(scanner, tmp_repo):
+    toml = """
+[project]
+name = "myapp"
+dependencies = [
+    "requests==2.31.0",
+    "click>=8.0",
+]
+""".strip()
+    make_file(tmp_repo, "pyproject.toml", toml)
+    with patch("repo_tester.scanners.supply_chain.http.post") as mock_post:
+        mock_post.return_value.ok = True
+        mock_post.return_value.json.return_value = {"vulns": []}
+        findings = scanner.scan(tmp_repo)
+    titles = [f.title for f in findings]
+    assert any("click" in t for t in titles)  # unpinned >=
+    assert not any("Unpinned" in t and "requests" in t for t in titles)  # pinned ==

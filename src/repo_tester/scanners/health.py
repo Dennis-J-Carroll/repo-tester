@@ -175,13 +175,41 @@ class RepoHealthScanner(BaseScanner):
             except OSError:
                 continue
 
-            # Imp 6: Calculate thin-wrapper flag density for this workflow
             thin_count, total_steps, density = _curl_pipe_flag_density(text)
 
-            for i, line in enumerate(text.splitlines(), 1):
+            # Build a line→step-buffer map so verification on adjacent lines is visible
+            lines = text.splitlines()
+            step_buffers: dict[int, str] = {}  # 1-based line → full step text
+            current_step_lines: list[int] = []
+            current_step_parts: list[str] = []
+            for i, line in enumerate(lines, 1):
+                if re.match(r"^\s*-\s*(name|run|uses):", line):
+                    # Flush previous step
+                    if current_step_parts:
+                        buf = "\n".join(current_step_parts)
+                        for ln in current_step_lines:
+                            step_buffers[ln] = buf
+                    current_step_lines = [i]
+                    current_step_parts = [line]
+                elif current_step_parts and not (line.strip().startswith("- ") and not line.strip().startswith("- name:") and not line.strip().startswith("- run:") and not line.strip().startswith("- uses:")):
+                    current_step_lines.append(i)
+                    current_step_parts.append(line)
+                else:
+                    if current_step_parts:
+                        buf = "\n".join(current_step_parts)
+                        for ln in current_step_lines:
+                            step_buffers[ln] = buf
+                    current_step_lines = []
+                    current_step_parts = []
+            if current_step_parts:
+                buf = "\n".join(current_step_parts)
+                for ln in current_step_lines:
+                    step_buffers[ln] = buf
+
+            for i, line in enumerate(lines, 1):
                 if re.search(r"curl\s+\S+.*\|\s*(bash|sh)", line):
-                    # Imp 6: Thin wrapper without verification
-                    if _is_thin_wrapper_step(line):
+                    step_context = step_buffers.get(i, line)
+                    if _is_thin_wrapper_step(step_context):
                         findings.append(Finding(
                             severity="HIGH",
                             title="curl pipe shell in CI workflow (thin wrapper, no verification)",
@@ -191,10 +219,9 @@ class RepoHealthScanner(BaseScanner):
                             file_path=str(wf),
                             line_number=i,
                             scanner=self.name,
-                            verdict="bad",  # Imp 8: definitely bad
+                            verdict="bad",
                         ))
                     else:
-                        # Has verification — still flag but as warn
                         findings.append(Finding(
                             severity="MEDIUM",
                             title="curl pipe shell in CI workflow (has verification)",
