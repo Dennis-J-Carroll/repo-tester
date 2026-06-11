@@ -38,6 +38,10 @@ dev = [
     "pytest-cov>=5.0",
     "pytest-mock>=3.14",
 ]
+server = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+]
 
 [project.scripts]
 repo-tester = "repo_tester.cli:main"

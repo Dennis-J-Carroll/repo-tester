@@ -975,31 +975,79 @@
     // ═══════════════════════════════════════════════════════════════
     //  SCAN HANDLER
     // ═══════════════════════════════════════════════════════════════
+    const API_URL = 'https://repo-tester-api.onrender.com'; // update after first deploy
+
     async function runScan() {
       const input = document.getElementById('repo-url');
       const btn = document.getElementById('scan-btn');
+      const statusEl = document.getElementById('status-text');
       const url = input.value.trim();
 
       if (!url) return;
       if (!url.match(/^https:\/\/github\.com\/[^\/]+\/[^\/\s]+/)) {
-        document.getElementById('status-text').textContent = 'ERROR — Invalid GitHub URL';
+        statusEl.textContent = 'ERROR — Invalid GitHub URL';
         return;
       }
 
       btn.disabled = true;
-      document.getElementById('status-text').innerHTML = '<span style="color:var(--verdict-warn)">SCANNING...</span>';
 
-      // Simulate processing time
-      await new Promise(r => setTimeout(r, 800 + Math.random() * 1200));
+      // Live elapsed counter — cold starts on free tier can take ~30s
+      let elapsed = 0;
+      const timer = setInterval(() => {
+        elapsed++;
+        statusEl.innerHTML = `<span style="color:var(--verdict-warn)">SCANNING... ${elapsed}s</span>`;
+      }, 1000);
+      statusEl.innerHTML = '<span style="color:var(--verdict-warn)">SCANNING... 0s</span>';
 
-      const data = generateDemoScan(url);
-      scanHistory.push(data);
-      currentScan = data;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 90000);
 
-      renderDashboard(data);
-      btn.disabled = false;
-      input.value = '';
-      input.focus();
+      try {
+        const resp = await fetch(`${API_URL}/scan`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url }),
+          signal: controller.signal,
+        });
+
+        if (!resp.ok) {
+          let errMsg = `HTTP ${resp.status}`;
+          try { const e = await resp.json(); errMsg = e.detail || errMsg; } catch {}
+          throw new Error(errMsg);
+        }
+
+        const data = await resp.json();
+        scanHistory.push(data);
+        currentScan = data;
+        renderDashboard(data);
+        statusEl.innerHTML = `<span style="color:var(--verdict-ok)">SCANNED — ${data.repo_name} — ${data.findings.length} findings</span>`;
+
+      } catch (err) {
+        const isTimeout = err.name === 'AbortError';
+        const msg = isTimeout ? 'TIMEOUT — scan took too long' : `ERROR — ${err.message}`;
+        statusEl.innerHTML = `<span style="color:var(--severity-high)">${msg}</span>`;
+
+        // Fall back to demo data so the UI remains usable
+        const demo = generateDemoScan(url);
+        scanHistory.push(demo);
+        currentScan = demo;
+        renderDashboard(demo);
+
+        const dashboard = document.getElementById('dashboard');
+        if (dashboard) {
+          const banner = document.createElement('div');
+          banner.style.cssText = 'background:rgba(234,179,8,0.1);border:1px solid var(--verdict-warn);padding:0.5rem 1rem;border-radius:4px;margin-bottom:1rem;font-size:11px;color:var(--verdict-warn)';
+          banner.textContent = `⚠ API unavailable — showing demo data (${msg})`;
+          dashboard.prepend(banner);
+        }
+
+      } finally {
+        clearTimeout(timeoutId);
+        clearInterval(timer);
+        btn.disabled = false;
+        input.value = '';
+        input.focus();
+      }
     }
 
     // ═══════════════════════════════════════════════════════════════
