@@ -1,6 +1,7 @@
 from __future__ import annotations
 import sys
 import concurrent.futures
+from pathlib import Path
 import click
 from repo_tester.context import clone_repo
 from repo_tester.report import Report
@@ -62,6 +63,15 @@ def run_scan(url: str) -> tuple[Report, int]:
         if repo.ignore_config.rules:
             report.findings = [f for f in report.findings
                                 if not repo.ignore_config.is_ignored(f)]
+
+        # Rebase absolute clone paths to repo-relative so the temp dir
+        # (/tmp/repo-tester-XXXX/...) never leaks into reports.
+        for f in report.findings:
+            if f.file_path:
+                try:
+                    f.file_path = str(Path(f.file_path).relative_to(repo.local_path))
+                except ValueError:
+                    pass  # path not under the clone root — leave as-is
 
         report.flag_density = normalized_flag_density(
             len(report.findings), max(file_count, 1), repo_type
