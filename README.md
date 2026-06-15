@@ -11,6 +11,8 @@
 
 **GitHub repository safety scanner** - Detect malicious patterns, supply chain risks, and repository health issues
 
+**Feel free to scan a repo on my personal website: https://dennisjcarroll.com/apps/repo-tester.html**
+
 ## Overview
 
 `repo-tester` is a comprehensive security scanner for GitHub repositories that identifies malicious code patterns, supply chain vulnerabilities, and repository health issues. Built for security engineers, DevOps teams, and developers, it provides fast parallel scanning with actionable findings.
