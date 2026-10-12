@@ -13,18 +13,38 @@
 
 ## Overview
 
-`repo-tester` is a comprehensive security scanner for GitHub repositories that identifies malicious code patterns, supply chain vulnerabilities, and repository health issues. Built for security engineers, DevOps teams, and developers, it provides fast parallel scanning with actionable findings.
+`repo-tester` scans GitHub repository source and dependency manifests for patterns, advisory matches, and repository health signals. Findings are triage leads; pattern matches do not prove exploitation or malicious intent.
 
-Perfect for vetting third-party repositories, auditing dependencies, and integrating security checks into CI/CD pipelines.
+Use it to prioritize source review and dependency checks. A scan cannot prove a repository safe.
+
+## Dependency evidence and limits
+
+- npm `package-lock.json` v2/v3: resolve reachable direct and transitive packages from the committed lockfile, then query OSV with each exact package version. `resolved_version` describes the lockfile. `installed` stays `null` because the scanner does not inspect `node_modules` or a running environment.
+- npm without an adjacent supported lockfile: report an unverified-version warning. Do not turn historical package-name advisories into vulnerability findings. Yarn and pnpm lockfiles are not parsed yet.
+- Exact PyPI `==` declarations: query OSV with the declared version, but mark advisory matches `WARN` because no installed environment was inspected. Other Python version ranges are not resolved.
+- Each OSV finding has one advisory ID, package identity, published affected ranges and fixes, source URL, fetch time, and a dependency path when available. The scanner checks OSV package attribution before emitting a finding. Vulnerable function reachability remains untested.
+- Advisory severity comes from OSV database metadata when present. Records without a supported label receive a `MEDIUM` triage default, not an inferred CVSS score.
+- npm typosquat warnings require directional download evidence and registry metadata. Download counts measure tarball requests, not users; unavailable registry data does not become a security accusation.
+- `flag_density` is excess findings per 100 scanned files above a heuristic repo-type baseline. JSON also exposes `flag_density_raw` and `flag_density_baseline`. This is not a security score.
+
+### Public fixture comparison (2026-10-11)
+
+`leetcode-cli` commit `77ffcc0`: `npm audit` reported 7 vulnerable package entries (3 high, 4 moderate). Versioned OSV checks reported 8 advisory/package matches across 6 packages. All 6 appeared in `npm audit`; audit additionally reported `@vitest/coverage-v8`, derived from a vulnerable dependency. These tools count different units, so this overlap is not ground-truth precision or recall. The earlier proposed zero-HIGH baseline is invalid for this commit.
+
+Reproduce with a local clone of that commit:
+
+```bash
+PYTHONPATH=src python scripts/eval-npm-lock.py /path/to/leetcode-cli --npm-audit
+```
 
 ## Features
 
 - **Malicious Pattern Detection** - Identifies obfuscated code, suspicious imports, base64 encoding, credential theft patterns, and hidden backdoors
-- **Supply Chain Risk Analysis** - Detects vulnerable dependencies, security advisories, and compromised packages using OSV database
+- **Supply Chain Risk Analysis** - Matches exact declared or locked versions against OSV; reports unresolved versions separately
 - **Repository Health Metrics** - Evaluates code quality, maintenance status, commit activity, and security best practices
 - **Parallel Scanning** - All three scanners run concurrently for performance
 - **JSON & Terminal Output** - Flexible reporting formats for integration and human review
-- **🔐 Security-First** - Designed with a defense-in-depth approach across multiple threat vectors
+- **Evidence fields** - Advisory ID, package version, dependency path, source URL, and scan limits in JSON output
 
 ## Quick Start
 
@@ -188,20 +208,17 @@ Patterns are defined in `patterns/malicious_patterns.json` for easy updates with
 
 #### 2. Supply Chain Scanner (Priority 2)
 Analyzes dependencies for security risks:
-- Uses OSV (Open Source Vulnerabilities) database
-- Checks for known CVEs in specific versions
-- Identifies deprecated or unmaintained packages
-- Detects high-risk dependencies
-- Validates version pinning practices
+- Queries OSV for exact npm lockfile versions and exact PyPI declarations
+- Rejects advisory records attributed to another package
+- Reports unsupported or unresolved version checks as warnings
+- Uses conservative name-similarity checks for possible typosquats
+- Flags a narrow set of version-pinning and PKGBUILD source patterns
 
 #### 3. Repository Health Scanner (Priority 3)
 Evaluates overall repository health:
-- Commit frequency and activity patterns
-- License presence and compliance
-- README completeness
-- Security policy files
-- Branch protection rules
-- Issue response times
+- Basic GitHub repository metadata
+- License and security-policy presence
+- Selected GitHub Actions workflow patterns
 
 All three scanners run concurrently via ThreadPoolExecutor for optimal performance.
 

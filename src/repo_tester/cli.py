@@ -6,6 +6,7 @@ import click
 from repo_tester.context import clone_repo
 from repo_tester.report import Report
 from repo_tester.repo_type import (
+    density_baseline,
     detect_repo_type,
     normalized_flag_density,
     is_expected_finding,
@@ -30,12 +31,12 @@ def run_scan(url: str) -> tuple[Report, int]:
         all_deps: list[dict] = []
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
-            futures = [executor.submit(s.scan, repo) for s in SCANNERS]
+            futures = {executor.submit(s.scan, repo): s.name for s in SCANNERS}
             for future in concurrent.futures.as_completed(futures, timeout=90):
                 try:
                     report.findings.extend(future.result())
-                except Exception:
-                    pass
+                except Exception as exc:
+                    report.scan_warnings.append(f"{futures[future]} scanner failed: {exc}")
 
         if repo_type:
             for f in report.findings:
@@ -61,8 +62,7 @@ def run_scan(url: str) -> tuple[Report, int]:
             report.library_targets = sc.library_targets(all_deps)
 
         if repo.ignore_config.rules:
-            report.findings = [f for f in report.findings
-                                if not repo.ignore_config.is_ignored(f)]
+            report.findings = [f for f in report.findings if not repo.ignore_config.is_ignored(f)]
 
         # Rebase absolute clone paths to repo-relative so the temp dir
         # (/tmp/repo-tester-XXXX/...) never leaks into reports.
@@ -73,17 +73,16 @@ def run_scan(url: str) -> tuple[Report, int]:
                 except ValueError:
                     pass  # path not under the clone root — leave as-is
 
-        report.flag_density = normalized_flag_density(
-            len(report.findings), max(file_count, 1), repo_type
-        )
+        report.flag_density_raw = (len(report.findings) / file_count) * 100 if file_count else 0.0
+        report.flag_density_baseline = density_baseline(repo_type)
+        report.flag_density = normalized_flag_density(len(report.findings), file_count, repo_type)
 
     return report, file_count
 
 
 @click.command()
 @click.argument("url")
-@click.option("--format", "fmt", type=click.Choice(["terminal", "json"]), default="terminal",
-              help="Output format")
+@click.option("--format", "fmt", type=click.Choice(["terminal", "json"]), default="terminal", help="Output format")
 @click.option("--quiet", is_flag=True, help="Suppress output when no findings")
 def main(url: str, fmt: str, quiet: bool) -> None:
     """Scan a GitHub repository for security issues."""
@@ -96,7 +95,7 @@ def main(url: str, fmt: str, quiet: bool) -> None:
         click.echo(f"Scan failed: {exc}", err=True)
         sys.exit(2)
 
-    if quiet and not report.findings:
+    if quiet and not report.findings and not report.scan_warnings:
         sys.exit(0)
 
     if fmt == "json":

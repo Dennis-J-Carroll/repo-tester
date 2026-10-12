@@ -1,8 +1,11 @@
 import json
+from pathlib import Path
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import patch, MagicMock
-from tests.conftest import make_file
+
 from repo_tester.scanners.supply_chain import SupplyChainScanner
+from tests.conftest import make_file
 
 
 @pytest.fixture
@@ -33,20 +36,34 @@ def test_detects_osv_vulnerability(scanner, tmp_repo):
     with patch("repo_tester.scanners.supply_chain.http.post") as mock_post:
         mock_post.return_value.ok = True
         mock_post.return_value.json.return_value = {
-            "vulns": [{"id": "CVE-2023-1234"}, {"id": "CVE-2023-5678"}]
+            "vulns": [
+                {
+                    "id": "CVE-2023-1234",
+                    "affected": [{"package": {"name": "requests", "ecosystem": "PyPI"}}],
+                }
+            ]
         }
         findings = scanner.scan(tmp_repo)
-    assert any("CVE" in f.detail for f in findings)
-    assert any(f.severity == "HIGH" for f in findings)
+    assert any("CVE" in f.title for f in findings)
+    assert all(f.verdict != "bad" for f in findings)  # Manifest pin is not installed-state proof.
+    assert mock_post.call_args.kwargs["json"]["version"] == "2.0.0"
 
 
-def test_osv_network_failure_silent(scanner, tmp_repo):
+def test_pypi_attribution_uses_normalized_distribution_name(scanner):
+    advisory = {
+        "id": "GHSA-example",
+        "affected": [{"package": {"name": "my-pkg", "ecosystem": "PyPI"}}],
+    }
+    finding = scanner._advisory_finding("my_pkg", "1.0.0", "PyPI", advisory, Path("requirements.txt"), None)
+    assert finding is not None
+    assert finding.advisory["id"] == "GHSA-example"
+
+
+def test_osv_network_failure_is_visible(scanner, tmp_repo):
     make_file(tmp_repo, "requirements.txt", "requests==2.31.0\n")
-    with patch("repo_tester.scanners.supply_chain.http.post",
-               side_effect=Exception("network error")):
+    with patch("repo_tester.scanners.supply_chain.http.post", side_effect=Exception("network error")):
         findings = scanner.scan(tmp_repo)
-    # Should not raise, unpinned finding only (requests is pinned here)
-    assert all("network" not in f.detail.lower() for f in findings)
+    assert any("network error" in f.detail.lower() and f.verdict == "warn" for f in findings)
 
 
 def test_detects_typosquatting(scanner, tmp_repo):
@@ -60,9 +77,7 @@ def test_detects_typosquatting(scanner, tmp_repo):
 
 
 def test_pkgbuild_raw_ip_source(scanner, tmp_repo):
-    make_file(tmp_repo, "PKGBUILD",
-              "source=('https://192.168.1.1/package.tar.gz')\n",
-              is_install=True)
+    make_file(tmp_repo, "PKGBUILD", "source=('https://192.168.1.1/package.tar.gz')\n", is_install=True)
     findings = scanner.scan(tmp_repo)
     assert any("raw IP" in f.title for f in findings)
 
@@ -71,10 +86,9 @@ def test_parses_package_json_deps(scanner, tmp_repo):
     pkg = json.dumps({"dependencies": {"lodash": ">=4.0.0"}})
     make_file(tmp_repo, "package.json", pkg)
     with patch("repo_tester.scanners.supply_chain.http.post") as mock_post:
-        mock_post.return_value.ok = True
-        mock_post.return_value.json.return_value = {"vulns": []}
         findings = scanner.scan(tmp_repo)
-    assert any("lodash" in f.title for f in findings)
+    assert any("no adjacent supported package-lock.json" in f.detail.lower() for f in findings)
+    mock_post.assert_not_called()  # Versionless lookups would return historical advisories.
 
 
 def test_pyproject_zero_deps_no_findings(scanner, tmp_repo):
