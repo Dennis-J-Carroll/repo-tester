@@ -9,35 +9,35 @@ Inspired by analyze.py's context-aware abstraction detection and
 CodeHealth's insight that equal complexity scores can hide very different
 code quality.
 """
+
 from __future__ import annotations
 from pathlib import Path
-from dataclasses import dataclass, field
 
 
 # Domain signatures: key files that indicate a repo's primary framework
 _DOMAIN_SIGNATURES: dict[str, list[str]] = {
-    "django":     ["manage.py", "settings.py", "wsgi.py", "asgi.py", "urls.py"],
-    "flask":      ["app.py", "wsgi.py"],  # + "flask" in requirements
-    "fastapi":    ["main.py"],  # + "fastapi" in requirements
-    "react":      ["src/App.js", "src/App.jsx", "src/App.tsx", "public/index.html"],
-    "vue":        ["src/App.vue", "vue.config.js", "vite.config.ts"],
-    "angular":    ["angular.json", "src/app/app.component.ts"],
-    "nextjs":     ["next.config.js", "next.config.mjs", "pages/_app.js"],
+    "django": ["manage.py", "settings.py", "wsgi.py", "asgi.py", "urls.py"],
+    "flask": ["app.py", "wsgi.py"],  # + "flask" in requirements
+    "fastapi": ["main.py"],  # + "fastapi" in requirements
+    "react": ["src/App.js", "src/App.jsx", "src/App.tsx", "public/index.html"],
+    "vue": ["src/App.vue", "vue.config.js", "vite.config.ts"],
+    "angular": ["angular.json", "src/app/app.component.ts"],
+    "nextjs": ["next.config.js", "next.config.mjs", "pages/_app.js"],
     "data-science": ["notebook.ipynb", "notebooks/", "data/", "models/"],
-    "go":         ["go.mod", "go.sum"],
-    "rust":       ["Cargo.toml", "Cargo.lock"],
-    "ruby":       ["Gemfile", "Gemfile.lock"],
+    "go": ["go.mod", "go.sum"],
+    "rust": ["Cargo.toml", "Cargo.lock"],
+    "ruby": ["Gemfile", "Gemfile.lock"],
 }
 
 # Domain-specific expected patterns: these findings are "ok" in this domain
 _DOMAIN_EXPECTED_PATTERNS: dict[str, list[tuple[str, str]]] = {
     # (scanner, pattern_substring) -> these are expected/legitimate for this domain
     "django": [
-        ("malicious", "__import__"),           # Django uses dynamic imports
-        ("malicious", "Dynamic exec"),          # Django template compilation
-        ("malicious", "Dynamic compile"),       # Django ORM metaclasses
-        ("supply_chain", "django"),             # Django itself is a dep
-        ("health", "No LICENSE"),               # Common oversight, not critical
+        ("malicious", "__import__"),  # Django uses dynamic imports
+        ("malicious", "Dynamic exec"),  # Django template compilation
+        ("malicious", "Dynamic compile"),  # Django ORM metaclasses
+        ("supply_chain", "django"),  # Django itself is a dep
+        ("health", "No LICENSE"),  # Common oversight, not critical
     ],
     "flask": [
         ("malicious", "__import__"),
@@ -48,8 +48,8 @@ _DOMAIN_EXPECTED_PATTERNS: dict[str, list[tuple[str, str]]] = {
         ("malicious", "Dynamic exec"),
     ],
     "react": [
-        ("malicious", "eval"),                  # build tools use eval
-        ("supply_chain", "react"),              # react-dom is expected
+        ("malicious", "eval"),  # build tools use eval
+        ("supply_chain", "react"),  # react-dom is expected
     ],
     "vue": [
         ("malicious", "eval"),
@@ -59,15 +59,15 @@ _DOMAIN_EXPECTED_PATTERNS: dict[str, list[tuple[str, str]]] = {
         ("malicious", "exec"),
     ],
     "data-science": [
-        ("malicious", "Dynamic exec"),          # Jupyter uses exec
-        ("malicious", "eval"),                  # notebooks use eval
+        ("malicious", "Dynamic exec"),  # Jupyter uses exec
+        ("malicious", "eval"),  # notebooks use eval
         ("malicious", "__import__"),
     ],
     "go": [
-        ("supply_chain", "unpinned"),           # Go modules don't pin like Python
+        ("supply_chain", "unpinned"),  # Go modules don't pin like Python
     ],
     "rust": [
-        ("supply_chain", "unpinned"),           # Cargo uses semver ranges
+        ("supply_chain", "unpinned"),  # Cargo uses semver ranges
     ],
 }
 
@@ -131,28 +131,32 @@ def is_expected_finding(repo_type: str, scanner: str, title: str) -> bool:
     return False
 
 
+DENSITY_BASELINES: dict[str, float] = {
+    "django": 8.0,  # Django repos: ORM, templates, dynamic imports
+    "flask": 5.0,
+    "fastapi": 5.0,
+    "react": 4.0,
+    "vue": 4.0,
+    "angular": 4.0,
+    "nextjs": 5.0,
+    "data-science": 6.0,  # Jupyter, pandas, numpy patterns
+    "go": 2.0,
+    "rust": 2.0,
+    "ruby": 3.0,
+}
+
+
+def density_baseline(repo_type: str) -> float:
+    """Return heuristic repo-type noise floor, in findings per 100 files."""
+    return DENSITY_BASELINES.get(repo_type, 3.0)
+
+
 def normalized_flag_density(findings_count: int, files_count: int, repo_type: str) -> float:
-    """Calculate flag density normalized by repo type."""
+    """Calculate excess findings per 100 files above a heuristic baseline."""
     if files_count == 0:
         return 0.0
     raw_density = (findings_count / files_count) * 100
-
-    # Domain-specific baselines: these domains naturally produce more findings
-    # This is the "expected noise floor" for each domain
-    baselines: dict[str, float] = {
-        "django": 8.0,        # Django repos: ORM, templates, dynamic imports
-        "flask": 5.0,
-        "fastapi": 5.0,
-        "react": 4.0,
-        "vue": 4.0,
-        "angular": 4.0,
-        "nextjs": 5.0,
-        "data-science": 6.0,  # Jupyter, pandas, numpy patterns
-        "go": 2.0,
-        "rust": 2.0,
-        "ruby": 3.0,
-    }
-    baseline = baselines.get(repo_type, 3.0)  # default baseline
+    baseline = density_baseline(repo_type)
 
     # Normalized: subtract the expected baseline so we're measuring
     # *excess* density above the domain's normal noise floor

@@ -16,6 +16,14 @@ def test_report_exit_code_zero_when_clean():
     assert r.exit_code == 0
 
 
+def test_report_scanner_failure_is_not_clean():
+    report = Report(url="https://github.com/x/y", scan_warnings=["supply_chain scanner failed"])
+    assert report.exit_code == 1
+    assert "Scan incomplete" in report.to_terminal()
+    assert "supply_chain scanner failed" in report.to_terminal()
+    assert json.loads(report.to_json())["scan_warnings"] == ["supply_chain scanner failed"]
+
+
 def test_report_exit_code_one_when_findings():
     r = Report(url="https://github.com/x/y", findings=[
         Finding(severity="HIGH", title="t", detail="d")
